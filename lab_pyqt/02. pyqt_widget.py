@@ -1,9 +1,10 @@
 # 02. pyqt_widget.py
-# pyqt 위젯 배치
+# PyQt 위젯
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLabel
 from PyQt5.QtGui import QImage, QPixmap
 from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QApplication,\
+    QWidget, QLabel, QPushButton
 import numpy as np
 
 
@@ -13,7 +14,7 @@ class MyApp(QWidget):
         # 창 크기 고정
         self.setFixedSize(400, 300)
         # 창 제목 설정
-        self.setWindowTitle('MyApp')
+        self.setWindowTitle('GA Mario')
 
         # 버튼
         button = QPushButton(self)
@@ -36,11 +37,10 @@ class MyApp(QWidget):
         label_image.setPixmap(pixmap)
         label_image.setGeometry(0, 0, 100, 100)
 
-        # 창 띄우기
         self.show()
 
 
 if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    window = MyApp()
-    sys.exit(app.exec_())
+   app = QApplication(sys.argv)
+   window = MyApp()
+   sys.exit(app.exec_())
