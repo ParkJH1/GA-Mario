@@ -2,6 +2,7 @@
 # PyQt 키 이벤트
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget
+from PyQt5.QtCore import Qt
 
 
 class MyApp(QWidget):
