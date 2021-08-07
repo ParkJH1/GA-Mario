@@ -9,4 +9,4 @@ ram = env.get_ram()
 print(ram.shape)
 print(ram)
 
-print(ram[0xe])
+print(ram[0x0003])
