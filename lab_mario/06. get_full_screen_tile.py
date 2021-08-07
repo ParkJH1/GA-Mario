@@ -19,9 +19,14 @@ full_screen_tile_count = full_screen_tiles.shape[0]
 full_screen_page1_tile = full_screen_tiles[:full_screen_tile_count//2].reshape((13, 16))
 full_screen_page2_tile = full_screen_tiles[full_screen_tile_count//2:].reshape((13, 16))
 
+print(full_screen_page1_tile)
+print(full_screen_page2_tile)
+
 full_screen_tiles = np.concatenate((full_screen_page1_tile, full_screen_page2_tile), axis=1).astype(np.int)
 
 print(full_screen_tiles)
+
+print(type(full_screen_tiles[0][0]))
 
 # Empty = 0x00
 # Fake = 0x01
@@ -36,4 +41,3 @@ print(full_screen_tiles)
 # Coin_Block2 = 0xC1
 # Coin = 0xC2
 # Breakable_Block = 0x51
-
