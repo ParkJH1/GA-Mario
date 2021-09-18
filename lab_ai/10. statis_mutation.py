@@ -50,7 +50,4 @@ def roulette_wheel_selection(chromosomes):
 def static_mutation(chromosome):
     mutation_array = np.random.random(chromosome.shape) < 0.05
     gaussian_mutation = np.random.normal(size=chromosome.shape)
-    chromosome[mutation_array] += gaussian_mutSzation[mutation_array]
-
-
-
+    chromosome[mutation_array] += gaussian_mutation[mutation_array]
