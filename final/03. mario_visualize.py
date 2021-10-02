@@ -1,16 +1,14 @@
-# 03. mario_visualize.py
 import retro
-import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel
-from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QImage, QPixmap, QPainter, QPen, QBrush, QColor
+from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtWidgets import QApplication, QLabel, QWidget
 import numpy as np
+import sys
 import random
 import os
 
-
-relu = lambda x: np.maximum(0, x)
-sigmoid = lambda x: 1.0 / (1.0 + np.exp(-x))
+relu = lambda X: np.maximum(0, X)
+sigmoid = lambda X: 1.0 / (1.0 + np.exp(-X))
 
 
 class Chromosome:
@@ -41,16 +39,17 @@ class Chromosome:
 
 class GeneticAlgorithm:
     def __init__(self):
-        self.chromosomes = [Chromosome() for _ in range(10)]
         self.generation = 0
+        self.chromosomes = [Chromosome() for _ in range(10)]
         self.current_chromosome_index = 0
+
+    def elitist_preserve_selection(self):
+        sort_chromosomes = sorted(self.chromosomes, key=lambda x: x.fitness(), reverse=True)
+        return sort_chromosomes[:2]
 
     def roulette_wheel_selection(self):
         result = []
-        fitness_sum = 0
-        for chromosome in self.chromosomes:
-            fitness_sum += chromosome.fitness()
-
+        fitness_sum = sum(c.fitness() for c in self.chromosomes)
         for _ in range(2):
             pick = random.uniform(0, fitness_sum)
             current = 0
@@ -59,41 +58,32 @@ class GeneticAlgorithm:
                 if current > pick:
                     result.append(chromosome)
                     break
-
         return result
 
-    def elitist_preserve_selection(self):
-        sorted_chromosomes = sorted(self.chromosomes, key=lambda x: x.fitness(), reverse=True)
-        return sorted_chromosomes[:2]
-
-    def selection(self):
-        result = self.roulette_wheel_selection()
-        return result
-
-    def simulated_binary_crossover(self, parent_chromosome1, parent_chromosome2):
-        rand = np.random.random(parent_chromosome1.shape)
-        gamma = np.empty(parent_chromosome1.shape)
+    def SBX(self, p1, p2):
+        rand = np.random.random(p1.shape)
+        gamma = np.empty(p1.shape)
         gamma[rand <= 0.5] = (2 * rand[rand <= 0.5]) ** (1.0 / (100 + 1))
-        gamma[rand > 0.5] = (2 * rand[rand > 0.5]) ** (1.0 / (100 + 1))
-        child_chromosome1 = 0.5 * ((1 + gamma) * parent_chromosome1 + (1 - gamma) * parent_chromosome2)
-        child_chromosome2 = 0.5 * ((1 - gamma) * parent_chromosome1 + (1 + gamma) * parent_chromosome2)
-        return child_chromosome1, child_chromosome2
+        gamma[rand > 0.5] = (1.0 / (2.0 * (1.0 - rand[rand > 0.5]))) ** (1.0 / (100 + 1))
+        c1 = 0.5 * ((1 + gamma) * p1 + (1 - gamma) * p2)
+        c2 = 0.5 * ((1 - gamma) * p1 + (1 + gamma) * p2)
+        return c1, c2
 
     def crossover(self, chromosome1, chromosome2):
         child1 = Chromosome()
         child2 = Chromosome()
 
-        child1.w1, child2.w1 = self.simulated_binary_crossover(chromosome1.w1, chromosome2.w1)
-        child1.b1, child2.b1 = self.simulated_binary_crossover(chromosome1.b1, chromosome2.b1)
-        child1.w2, child2.w2 = self.simulated_binary_crossover(chromosome1.w2, chromosome2.w2)
-        child1.b2, child2.b2 = self.simulated_binary_crossover(chromosome1.b2, chromosome2.b2)
+        child1.w1, child2.w1 = self.SBX(chromosome1.w1, chromosome2.w1)
+        child1.b1, child2.b1 = self.SBX(chromosome1.b1, chromosome2.b1)
+        child1.w2, child2.w2 = self.SBX(chromosome1.w2, chromosome2.w2)
+        child1.b2, child2.b2 = self.SBX(chromosome1.b2, chromosome2.b2)
 
         return child1, child2
 
-    def static_mutation(self, chromosome):
-        mutation_array = np.random.random(chromosome.shape) < 0.05
-        gaussian_mutation = np.random.normal(size=chromosome.shape)
-        chromosome[mutation_array] += gaussian_mutation[mutation_array]
+    def static_mutation(self, data):
+        mutation_array = np.random.random(data.shape) < 0.05
+        gaussian_mutation = np.random.normal(size=data.shape)
+        data[mutation_array] += gaussian_mutation[mutation_array]
 
     def mutation(self, chromosome):
         self.static_mutation(chromosome.w1)
@@ -102,31 +92,29 @@ class GeneticAlgorithm:
         self.static_mutation(chromosome.b2)
 
     def next_generation(self):
-        # 저장
         if not os.path.exists('../data'):
             os.mkdir('../data')
-        if not os.path.exists(f'../data/{self.generation}'):
-            os.mkdir(f'../data/{self.generation}')
+        if not os.path.exists('../data/' + str(self.generation)):
+            os.mkdir('../data/' + str(self.generation))
         for i in range(10):
-            if not os.path.exists(f'../data/{self.generation}/{i}'):
-                os.mkdir(f'../data/{self.generation}/{i}')
-            np.save(f'../data/{self.generation}/{i}/w1.npy', self.chromosomes[i].w1)
+            if not os.path.exists('../data/' + str(self.generation) + '/' + str(i)):
+                os.mkdir('../data/' + str(self.generation) + '/' + str(i))
+            np.save('../data/' + str(self.generation) + '/' + str(i) + '/w1.npy', self.chromosomes[i].w1)
+            np.save('../data/' + str(self.generation) + '/' + str(i) + '/w2.npy', self.chromosomes[i].w2)
             np.save('../data/' + str(self.generation) + '/' + str(i) + '/b1.npy', self.chromosomes[i].b1)
-            np.save(f'../data/{self.generation}/{i}/w2.npy', self.chromosomes[i].w2)
-            np.save(f'../data/{self.generation}/{i}/b2.npy', self.chromosomes[i].b2)
+            np.save('../data/' + str(self.generation) + '/' + str(i) + '/b2.npy', self.chromosomes[i].b2)
+            np.save('../data/' + str(self.generation) + '/' + str(i) + '/fitness.npy', np.array([self.chromosomes[i].fitness()]))
+
+        print(f'{self.generation}세대 시뮬레이션 완료.')
 
         next_chromosomes = []
         next_chromosomes.extend(self.elitist_preserve_selection())
-        # for c in self.elitist_preserve_selection():
-        #     next_chromosomes.append(c)
+        print(f'엘리트 적합도: {next_chromosomes[0].fitness()}')
 
         for i in range(4):
-            selected_chromosome = self.selection()
+            selected_chromosome = self.roulette_wheel_selection()
 
-            child_chromosome1, child_chromosome2 = self.crossover(
-                selected_chromosome[0],
-                selected_chromosome[1])
-
+            child_chromosome1, child_chromosome2 = self.crossover(selected_chromosome[0], selected_chromosome[1])
             self.mutation(child_chromosome1)
             self.mutation(child_chromosome2)
 
@@ -134,7 +122,6 @@ class GeneticAlgorithm:
             next_chromosomes.append(child_chromosome2)
 
         self.chromosomes = next_chromosomes
-
         for c in self.chromosomes:
             c.distance = 0
             c.max_distance = 0
@@ -149,25 +136,26 @@ class GeneticAlgorithm:
 class Mario(QWidget):
     def __init__(self):
         super().__init__()
+        self.env = retro.make(game='SuperMarioBros-Nes', state=f'Level1-1')
+        screen = self.env.reset()
 
-        self.env = retro.make(game='SuperMarioBros-Nes', state='Level1-1')
-        self.env.reset()
-
-        screen = self.env.get_screen()
         self.screen_width = screen.shape[0] * 2
         self.screen_height = screen.shape[1] * 2
 
         self.screen_tiles_margin_x = 60
         self.screen_tiles_margin_y = 10
         self.neural_network_l1_margin_x = 20
-        self.neural_network_w2_margin_x = 30
-        self.neural_network_predict_margin_x = 90
+        self.neural_network_w2_margin_x = 10
+        self.neural_network_predict_margin_x = 70
 
         self.setFixedSize(self.screen_width + 400, self.screen_height)
-        self.setWindowTitle('GA-Mario')
 
         self.screen_label = QLabel(self)
         self.screen_label.setGeometry(0, 0, self.screen_width, self.screen_height)
+
+        self.info_label = QLabel(self)
+        self.info_label.setGeometry(self.screen_width + 320, self.screen_height - 70, 70, 70)
+        self.info_label.setText('?????세대\n?번 마리오\n???????')
 
         self.ga = GeneticAlgorithm()
 
@@ -177,109 +165,96 @@ class Mario(QWidget):
 
         self.show()
 
-    def update_game(self):
+    def update_screen(self):
         screen = self.env.get_screen()
-        original = QImage(screen, screen.shape[1], screen.shape[0], QImage.Format_RGB888)
-        qimage = QImage(original)
+        qimage = QImage(screen, screen.shape[1], screen.shape[0], QImage.Format_RGB888)
         pixmap = QPixmap(qimage)
         pixmap = pixmap.scaled(self.screen_width, self.screen_height, Qt.IgnoreAspectRatio)
         self.screen_label.setPixmap(pixmap)
-        self.update()
 
-    def paintEvent(self, event):
+    def update_game(self):
+        self.update_screen()
+        self.update()
+        self.info_label.setText(f'{self.ga.generation}세대\n{self.ga.current_chromosome_index}번 마리오\n{self.ga.chromosomes[self.ga.current_chromosome_index].fitness()}')
+
+    def paintEvent(self, e):
         painter = QPainter()
         painter.begin(self)
 
+        painter.setPen(QPen(Qt.black))
+
         ram = self.env.get_ram()
 
-        full_screen_tiles = ram[0x0500:0x069F + 1]
-
+        full_screen_tiles = ram[0x0500:0x069F+1]
         full_screen_tile_count = full_screen_tiles.shape[0]
 
-        full_screen_page1_tile = full_screen_tiles[:full_screen_tile_count // 2].reshape((13, 16))
-        full_screen_page2_tile = full_screen_tiles[full_screen_tile_count // 2:].reshape((13, 16))
+        full_screen_page1_tiles = full_screen_tiles[:full_screen_tile_count // 2].reshape((-1, 16))
+        full_screen_page2_tiles = full_screen_tiles[full_screen_tile_count // 2:].reshape((-1, 16))
 
-        full_screen_tiles = np.concatenate((full_screen_page1_tile, full_screen_page2_tile), axis=1).astype(np.int)
+        full_screen_tiles = np.concatenate((full_screen_page1_tiles, full_screen_page2_tiles), axis=1).astype(np.int)
 
-        enemy_drawn = ram[0x000F:0x0013 + 1]
-
-        enemy_horizon_position = ram[0x006E:0x0072 + 1]
-        enemy_screen_position_x = ram[0x0087:0x008B + 1]
-        enemy_position_y = ram[0x00CF:0x00D3 + 1]
-        enemy_position_x = (enemy_horizon_position * 256 + enemy_screen_position_x) % 512
-
-        enemy_tile_position_x = (enemy_position_x + 8) // 16
-        enemy_tile_position_y = (enemy_position_y - 8) // 16 - 1
+        enemy_drawn = ram[0x000F:0x0014]
+        enemy_horizontal_position_in_level = ram[0x006E:0x0072+1]
+        enemy_x_position_on_screen = ram[0x0087:0x008B+1]
+        enemy_y_position_on_screen = ram[0x00CF:0x00D3+1]
 
         for i in range(5):
             if enemy_drawn[i] == 1:
-                ey = enemy_tile_position_y[i]
-                ex = enemy_tile_position_x[i]
+                ex = (((enemy_horizontal_position_in_level[i] * 256) + enemy_x_position_on_screen[i]) % 512 + 8) // 16
+                ey = (enemy_y_position_on_screen[i] - 8) // 16 - 1
                 if 0 <= ex < full_screen_tiles.shape[1] and 0 <= ey < full_screen_tiles.shape[0]:
                     full_screen_tiles[ey][ex] = -1
 
-        painter.setPen(QPen(Qt.black))
+        current_screen_in_level = ram[0x071A]
+        screen_x_position_in_level = ram[0x071C]
+        screen_x_position_offset = (256 * current_screen_in_level + screen_x_position_in_level) % 512
+        sx = screen_x_position_offset // 16
 
-        current_screen_page = ram[0x071A]
-        screen_position = ram[0x071C]
-        screen_offset = (256 * current_screen_page + screen_position) % 512
-        screen_tile_offset = screen_offset // 16
-
-        screen_tiles = np.concatenate((full_screen_tiles, full_screen_tiles), axis=1)[:, screen_tile_offset:screen_tile_offset + 16]
+        screen_tiles = np.concatenate((full_screen_tiles, full_screen_tiles), axis=1)[:, sx:sx+16]
 
         for i in range(screen_tiles.shape[0]):
             for j in range(screen_tiles.shape[1]):
                 if screen_tiles[i][j] > 0:
                     screen_tiles[i][j] = 1
-                    painter.setBrush(QBrush(Qt.cyan))
-                elif screen_tiles[i][j] == -1:
+                if screen_tiles[i][j] == -1:
                     screen_tiles[i][j] = 2
                     painter.setBrush(QBrush(Qt.red))
                 else:
-                    painter.setBrush(QBrush(Qt.gray))
-                painter.drawRect(self.screen_tiles_margin_x + self.screen_width + 16 * j, self.screen_tiles_margin_y + 16 * i, 16, 16)
+                    painter.setBrush(QBrush(QColor.fromHslF(125 / 239, 0 if screen_tiles[i][j] == 0 else 1, 120 / 240)))
+                painter.drawRect(self.screen_width + self.screen_tiles_margin_x + 16 * j, self.screen_tiles_margin_y + 16 * i, 16, 16)
 
-        player_position_x = ram[0x03AD]
-        player_position_y = ram[0x03B8]
-
-        player_tile_position_x = (player_position_x + 8) // 16
-        player_tile_position_y = (player_position_y + 8) // 16 - 1
-
+        player_x_position_current_screen_offset = ram[0x03AD]
+        player_y_position_current_screen_offset = ram[0x03B8]
+        px = (player_x_position_current_screen_offset + 8) // 16
+        py = (player_y_position_current_screen_offset + 8) // 16 - 1
         painter.setBrush(QBrush(Qt.blue))
-        painter.drawRect(self.screen_tiles_margin_x + self.screen_width + 16 * player_tile_position_x, self.screen_tiles_margin_y + 16 * player_tile_position_y, 16, 16)
+        painter.drawRect(self.screen_width + self.screen_tiles_margin_x + 16 * px, self.screen_tiles_margin_y + 16 * py, 16, 16)
 
-        frame_x = player_tile_position_x
-        frame_y = 2
-        painter.setPen(QPen(Qt.magenta, 4, Qt.SolidLine))
+        painter.setPen(QPen(Qt.magenta, 2, Qt.SolidLine))
         painter.setBrush(Qt.NoBrush)
-        painter.drawRect(self.screen_tiles_margin_x + self.screen_width + 16 * frame_x, self.screen_tiles_margin_y + 16 * frame_y, 16 * 8, 16 * 10)
+        ix = px
+        iy = 2
+        painter.drawRect(self.screen_width + self.screen_tiles_margin_x + 16 * ix, self.screen_tiles_margin_y + iy * 16, 16 * 8, 16 * 10)
 
-        input_data = screen_tiles[frame_y:frame_y+10, frame_x:frame_x+8]
-        if 2 <= player_tile_position_y <= 11:
-            input_data[player_tile_position_y - 2][0] = 2
+        input_data = screen_tiles[iy:iy+10, ix:ix+8]
+
+        if 2 <= py <= 11:
+            input_data[py - 2][0] = 2
 
         input_data = input_data.flatten()
 
         current_chromosome = self.ga.chromosomes[self.ga.current_chromosome_index]
         current_chromosome.frames += 1
-
-        player_horizon_position = ram[0x006D]
-        player_screen_position_x = ram[0x0086]
-        current_chromosome.distance = 256 * player_horizon_position + player_screen_position_x
+        current_chromosome.distance = ram[0x006D] * 256 + ram[0x0086]
 
         if current_chromosome.max_distance < current_chromosome.distance:
             current_chromosome.max_distance = current_chromosome.distance
-            current_chromosome.stop_frames = 0
+            current_chromosome.stop_frame = 0
         else:
-            current_chromosome.stop_frames += 1
+            current_chromosome.stop_frame += 1
 
-        player_float_state = ram[0x001D]
-        player_state = ram[0x000E]
-        player_vertical_screen_position = ram[0x00B5]
-
-        if player_float_state == 0x03 or player_state in (0x06, 0x0B) or player_vertical_screen_position >= 2 \
-            or current_chromosome.stop_frames > 180:
-            if player_float_state == 0x03:
+        if ram[0x001D] == 3 or ram[0x0E] in (0x0B, 0x06) or ram[0xB5] == 2 or current_chromosome.stop_frame > 180:
+            if ram[0x001D] == 3:
                 current_chromosome.win = 1
 
             print(f'{self.ga.current_chromosome_index + 1}번 마리오: {current_chromosome.fitness()}')
@@ -288,7 +263,7 @@ class Mario(QWidget):
 
             if self.ga.current_chromosome_index == 10:
                 self.ga.next_generation()
-                print(f'== {self.ga.generation} 세대 ==')
+                print(f'== {self.ga.generation}세대 ==')
 
             self.env.reset()
         else:
@@ -299,32 +274,26 @@ class Mario(QWidget):
             for i in range(current_chromosome.w2.shape[0]):
                 for j in range(current_chromosome.w2.shape[1]):
                     if current_chromosome.w2[i][j] > 0:
-                        painter.setPen(QPen(Qt.red))
+                        painter.setPen(QPen(Qt.red, 1, Qt.SolidLine))
                     else:
-                        painter.setPen(QPen(Qt.blue))
-                    painter.drawLine(self.neural_network_w2_margin_x + self.screen_width + i * 40, 252, self.neural_network_predict_margin_x + self.screen_width + j * 40, 452)
+                        painter.setPen(QPen(Qt.blue, 1, Qt.SolidLine))
+                    painter.drawLine(self.screen_width + self.neural_network_l1_margin_x + self.neural_network_w2_margin_x + i * 40, 252, self.screen_width + self.neural_network_predict_margin_x + self.neural_network_w2_margin_x + j * 40, 452)
 
-            painter.setPen(QPen(Qt.black))
+            painter.setPen(QPen(Qt.black, 2, Qt.SolidLine))
             for i in range(current_chromosome.l1.shape[0]):
-                if current_chromosome.l1[i] == 0:
-                    painter.setBrush(QBrush(Qt.gray))
-                else:
-                    painter.setBrush(QBrush(Qt.magenta))
-                painter.drawEllipse(self.neural_network_l1_margin_x + self.screen_width + i * 40, 240, 12 * 2, 12 * 2)
+                painter.setBrush(QBrush(QColor.fromHslF(125 / 239, 0 if current_chromosome.l1[i] == 0 else 1, 120 / 240)))
+                painter.drawEllipse(self.screen_width + self.neural_network_l1_margin_x + i * 40, 240, 12 * 2, 12 * 2)
 
-            for i in range(6):
-                if predict[i] == 1:
-                    painter.setBrush(QBrush(Qt.magenta))
-                else:
-                    painter.setBrush(QBrush(Qt.gray))
-                painter.drawEllipse(self.neural_network_predict_margin_x + self.screen_width + i * 40 - 10, 440, 12 * 2, 12 * 2)
+            for i in range(predict.shape[0]):
+                painter.setBrush(QBrush(QColor.fromHslF(0.8, 0 if predict[i] <= 0.5 else 1, 0.8)))
+                painter.drawEllipse(self.screen_width + self.neural_network_predict_margin_x + i * 40, 440, 12 * 2, 12 * 2)
                 text = ('U', 'D', 'L', 'R', 'A', 'B')[i]
-                painter.drawText(self.neural_network_predict_margin_x + self.screen_width + i * 40 - 20, 468, text)
+                painter.drawText(self.screen_width + self.neural_network_predict_margin_x + i * 40 - 5, 470, text)
 
         painter.end()
 
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    window = Mario()
-    sys.exit(app.exec_())
+    mario = Mario()
+    exit(app.exec_())
